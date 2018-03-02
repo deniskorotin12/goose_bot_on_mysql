@@ -1,22 +1,12 @@
 const TelegramBot = require("node-telegram-bot-api");
-const mysql = require('mysql');
+const con = require('./database/connection');
+const con_controller = require('./database/con_handler')();
+const formatDate = require('./modules/formatdate');
 const TOKEN = "404568801:AAGbYs522aLjZ1IqH7nIFCa-gbCLaJSQUnI";
-
-var con = mysql.createConnection({
-    host: "sql2.freemysqlhosting.net",
-    user: "sql2220158",
-    password: "uR3%zW5*",
-    database: "sql2220158"
-});
-
-con.connect(function(err) {
-    if (err) throw err;
-    console.log("Connected to mySQL server!");
-
-});
-
-
+const selectUserFromGroup = require('./modules/select_user')
 console.log("Bot has been started ...");
+con.connect(con_controller);
+
 
 const bot = new TelegramBot(TOKEN, {
     polling: {
@@ -28,22 +18,18 @@ const bot = new TelegramBot(TOKEN, {
     }
 });
 
+function randomInteger(min, max) {
+    var rand = min - 0.5 + Math.random() * (max - min + 1)
+    rand = Math.round(rand);
+    return rand;
+  }
 
 bot.onText(/\/gusi/, query => {
 
-    con.query(`
-    select 
-   *
-   from 
-       userInGroup as uig
-       left join 
-           user as u on uig.userID = u.id
-       left join 
-           groups as g on uig.groupID = g.id
-    where u.telegramId = ${query.from.id} and g.telegramId = ${query.chat.id}
-    
-    `, function(err, get_person_id) {
-        if (err) { console.log(err) }
+    con.query(selectUserFromGroup(query.from.id, query.chat.id), function(err, get_person_id) {
+        if (err) {
+            console.log(err)
+        }
         if (!get_person_id[0]) {
 
             bot.sendMessage(query.chat.id, 'Для начала Вам нужно зарегистрироваться!\nДля этого введите команду /reg');
@@ -62,7 +48,7 @@ bot.onText(/\/gusi/, query => {
            groups as gr on uig.groupID = gr.id
        left join
            user as u on uig.userID = u.id
-   where gr.telegramId = ${query.chat.id} and g.date = current_date()
+   where gr.telegramId = ${query.chat.id} and g.gooseDate = current_date()
    
    
    `, function(err, get_date) {
@@ -88,7 +74,7 @@ where g.telegramId = ${query.chat.id}
                         for (item of result) {
                             gusiArray.push(item.name);
                         }
-                        let rand = Math.floor(Math.random() * gusiArray.length);
+                        let rand = randomInteger(0, gusiArray.length)
                         let currentGoose = gusiArray[rand];
                         con.query(`
         SET @id = ( select 
@@ -107,7 +93,7 @@ where g.telegramId = ${query.chat.id}
         `, function(err, res) {
                             con.query(`
             update gusi
-            set countGoose = countGoose+1, date = current_date()
+            set countGoose = countGoose+1, gooseDate = current_date()
             where id = @id
             `, function(err, resul) {
                                 if (err) {
@@ -118,6 +104,7 @@ where g.telegramId = ${query.chat.id}
                             })
 
                         })
+                        
 
 
                     });
@@ -143,7 +130,7 @@ bot.onText(/\/reg/, query => {
         if (result[0]) {
             console.log(result[0]);
         } else {
-            con.query(`insert into groups (telegramId, groupname) values('${query.chat.id}','${query.chat.title}')`, function(err, result) {
+            con.query(`insert into groups (telegramId) values('${query.chat.id}')`, function(err, result) {
                 if (err) {
                     console.log(result);
                 }
@@ -161,18 +148,7 @@ bot.onText(/\/reg/, query => {
             })
         }
     })
-    con.query(` 
-select
-	*
-from 
-	userInGroup as uig 
-		left join 
-			user as u on uig.userID = u.id
-		left join 
-			groups as gr on uig.groupID = gr.id
-where u.telegramId = ${query.from.id} and gr.telegramId = ${query.chat.id};
-    
-    `, function(err, res) {
+    con.query(selectUserFromGroup(query.from.id, query.chat.id), function(err, res) {
         const sql = `
         insert into userInGroup(userID, groupID) values ((select id from user where telegramId = ${query.from.id}), 
         (select id from groups where telegramId = ${query.chat.id}))
@@ -231,19 +207,7 @@ bot.onText(/\/me/, query => {
 
 });
 
-formatDate = function(date) {
 
-        var dd = date.getDate();
-        if (dd < 10) dd = '0' + dd;
-
-        var mm = date.getMonth() + 1;
-        if (mm < 10) mm = '0' + mm;
-
-        var yy = date.getFullYear();
-        if (yy < 10) yy = '0' + yy;
-
-        return yy + '-' + mm + '-' + dd;
-    },
 
 
 
@@ -285,41 +249,35 @@ bot.onText(/\/stat/, query => {
         return;
     }
 
-    const Person = mongoose.model("person");
-    Person.find({
-            Group_id: {
-                $in: [query.chat.id]
-            }
-        })
-        .sort({
-            Counter_Goose: "desc"
-        })
-        .sort({
-            Name: "asc"
-        })
-        .then(users => {
-            if (!users[0]) {
-                bot.sendMessage(
-                    query.chat.id,
-                    "Нету еще зарегистрированных пользователей"
-                );
-            } else {
-                let text_stat = "";
-                for (let i = 0; i < users.length; i++) {
-                    text_stat += `${users[i].Name?users[i].Name:''} ${users[i].Surname?users[i].Surname:''} - ${users[i].Counter_Goose}\n`;
+    con.query(`
+    select 
+        * 
+    from 
+        userInGroup as uig
+            left join 
+                user as u on uig.userID = u.id
+            left join 
+                gusi as g on uig.id = g.id
+            left join 
+                groups as gr on uig.groupID = gr.id
+    
+    where gr.telegramId = ${query.chat.id}
+    order by countGoose desc
+            `, function(err, res) {
+        if (res[0]) {
+            let userString = '';
+            for (let i = 0; i < res.length; i++) {
+                if (res[i] == res[0]) {
+                    userString += `${res[i].name} - ${res[i].countGoose}  (Топ-Гусь)\n`;
+                } else {
+                    userString += `${res[i].name} - ${res[i].countGoose}\n`;
                 }
-                bot.sendMessage(
-                    query.chat.id,
-                    `Вот статистика по всем пользователям:\n${text_stat}`
-                );
             }
-        })
-        .catch(ex => {
-            bot.sendMessage(
-                query.chat.id,
-                "Нету еще зарегистрированных пользователей"
-            );
-        });
+            bot.sendMessage(query.chat.id, `${userString}`);
+        } else {
+            bot.sendMessage(query.chat.id, `В текущей группе нету зарегистрированных пользователей.\nВведите команду /reg для регистрации.`);
+        }
+    })
 });
 
 bot.onText(/\/help/, query => {
@@ -347,36 +305,36 @@ bot.onText(/\/top5/, query => {
         );
         return;
     }
-
-    const Person = mongoose.model("person");
-    Person.find({
-            Group_id: {
-                $in: [query.chat.id]
+    con.query(`
+        select
+            * 
+        from 
+            userInGroup as uig
+                left join 
+                    user as u on uig.userID = u.id
+                left join 
+                    gusi as g on uig.id = g.id
+                left join 
+                    groups as gr on uig.groupID = gr.id
+        
+        where gr.telegramId = ${query.chat.id}
+        order by countGoose desc
+        limit 5
+                `, function(err, res) {
+        if (res[0]) {
+            let userString = '';
+            for (let i = 0; i < res.length; i++) {
+                if (res[i] == res[0]) {
+                    userString += `${res[i].name} - ${res[i].countGoose}  (Топ-Гусь)\n`;
+                } else {
+                    userString += `${res[i].name} - ${res[i].countGoose}\n`;
+                }
             }
-        })
-        .sort({
-            Counter_Goose: "desc"
-        })
-        .sort({
-            Name: "asc"
-        })
-        .limit(5)
-        .then(users => {
-            let text_stat = "";
-            for (let i = 0; i < users.length; i++) {
-                text_stat += `${users[i].Name?users[i].Name:''} ${users[i].Surname?users[i].Surname:''} - ${users[i].Counter_Goose}\n`;
-            }
-            if (users.length < 5) {
-                bot.sendMessage(
-                    query.chat.id,
-                    `Сейчас количество участников ${
-            users.length
-          }. Вот их результаты:\n${text_stat}`
-                );
-            } else {
-                bot.sendMessage(query.chat.id, `Топ 5 Гусей:\n${text_stat}`);
-            }
-        });
+            bot.sendMessage(query.chat.id, `${userString}`);
+        } else {
+            bot.sendMessage(query.chat.id, `В текущей группе нету зарегистрированных пользователей.\nВведите команду /reg для регистрации.`);
+        }
+    })
 });
 
 //-302362122
@@ -388,3 +346,4 @@ bot.onText(/\/top5/, query => {
 // help - Помощь по командам
 // gusi - Определить гуся
 // top5 - Вывести Топ 5 гусей
+

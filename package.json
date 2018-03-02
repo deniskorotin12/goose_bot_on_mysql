@@ -4,7 +4,9 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "start": "nodemon index.js"
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "start": "nodemon index.js",
+        "switch_to_dev": "export $(cat .env | xargs) && wget --spider https://api.telegram.org/bot$TOKEN/setWebhook?url= --delete-after && node index.js"
     },
     "engines": {
         "node": "6.11.4"
@@ -12,14 +14,11 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
-        "koa": "^2.4.1",
-        "koa-bodyparser": "^4.2.0",
-        "koa-router": "^7.3.0",
-        "mongodb": "^3.0.2",
-        "mongoose": "^5.0.1",
+        "body-parser": "^1.18.2",
+        "dotenv": "^4.0.0",
+        "express": "^4.16.2",
         "mysql": "^2.15.0",
-        "node-telegram-bot-api": "^0.30.0",
-        "timers": "^0.1.1"
+        "node-telegram-bot-api": "^0.30.0"
     },
     "devDependencies": {
         "nodemon": "^1.14.11"
