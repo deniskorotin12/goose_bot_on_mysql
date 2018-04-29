@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="dataSourceStorageLocal">
+    <data-source name="MySQL - smartbiO@smartbi.com.ua" uuid="552f6d29-ee6b-411a-999f-69726b2f834a">
+      <secret-storage>master_key</secret-storage>
+      <user-name>u_smartbiOL</user-name>
+    </data-source>
+  </component>
+</project>

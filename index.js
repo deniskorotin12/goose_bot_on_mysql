@@ -18,14 +18,7 @@ const bot = new TelegramBot(TOKEN, {
     }
 });
 
-function randomInteger(min, max) {
-    var rand = min - 0.5 + Math.random() * (max - min + 1)
-    rand = Math.round(rand);
-    return rand;
-  }
-
 bot.onText(/\/gusi/, query => {
-
     con.query(selectUserFromGroup(query.from.id, query.chat.id), function(err, get_person_id) {
         if (err) {
             console.log(err)
@@ -74,7 +67,9 @@ where g.telegramId = ${query.chat.id}
                         for (item of result) {
                             gusiArray.push(item.name);
                         }
-                        let rand = randomInteger(0, gusiArray.length)
+                        let rand = Math.floor(
+                            Math.random() * gusiArray.length
+                        )
                         let currentGoose = gusiArray[rand];
                         con.query(`
         SET @id = ( select 
